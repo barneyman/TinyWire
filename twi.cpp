@@ -85,6 +85,12 @@ static volatile uint8_t txTail;
 static void (*twi_onSlaveTransmit)(void);
 static void (*twi_onSlaveReceive)(int);
 
+// function called after a PCINT that is not the responsibilty of this library
+static void(*twi_onISRchain)(uint8_t);
+// mask of user's pcints
+static volatile uint8_t usrPCINTmask = 0;
+static volatile uint8_t PINBstate = 0;
+
 /*--------------------------------------------------------------
  local functions
 ----------------------------------------------------------------*/
@@ -196,7 +202,7 @@ USI_TWI_MASTER_TRANSFER_RESULT USI_TWI_Master_Transfer( unsigned char temp, bool
     USICR = temp;                          // Generate negative SCL edge.
     #ifdef BUS_ARBITRATION
       if(!ack && (USISR & (1<<USIDC))) { // Check data collision bit
-        Twi_slave_init(slaveAddress);
+        Twi_slave_init(slaveAddress, usrPCINTmask);
         result.result = 0;
         result.error_code = USI_TWI_ARBITRATION_LOST;
         return result;
@@ -451,12 +457,26 @@ void Twi_attachSlaveTxEvent( void (*function)(void) )
   twi_onSlaveTransmit = function;
 }
 
-void Twi_slave_init(uint8_t slave_addr)
+/*
+* Function Twi_attachISRchain
+* Desc     sets function called after a PCINT interrupt that does not belong to this module
+* Input    function: callback function to use
+* Output   none
+*/
+
+void Twi_attachISRchain(void(*function)(uint8_t))
+{
+	twi_onISRchain = function;
+}
+
+
+void Twi_slave_init(uint8_t slave_addr, uint8_t usrPCINTmaskToSet)
 {
   flushTwiBuffers( );
   twi_master_mode = false;
 
   slaveAddress = slave_addr;
+  usrPCINTmask = usrPCINTmaskToSet;
 
   USIDR    =  0xFF;                       // Preload dataregister with "released level" data.
 
@@ -500,7 +520,10 @@ void Twi_slave_init(uint8_t slave_addr)
 
   GENERAL_INTERRUPT_MASK |= 1 << PIN_CHANGE_INTERRUPT_ENABLE; // enable Pin Change Interrupt
   GENERAL_INTERRUPT_FLAGS  |= 1 << PIN_CHANGE_FLAG; // clear interrupt flag, by writing 1 to it
-  PIN_CHANGE_MASK |= 1 << PIN_USI_SDA; // enable pin change interrupt on PCINT0 (SDA line)
+  PIN_CHANGE_MASK |= (1 << PIN_USI_SDA) | (1<< usrPCINTmask); // enable pin change interrupt on PCINT0 (SDA line)
+
+  // get current state of pins
+  PINBstate = PINB;
 }
 
 
@@ -555,7 +578,7 @@ void Twi_master_init(void)
 {
   twi_master_mode = true;
 
-  GIMSK &= ~(1 << PIN_CHANGE_INTERRUPT_ENABLE);
+  GENERAL_INTERRUPT_MASK &= ~(1 << PIN_CHANGE_INTERRUPT_ENABLE);
   slaveAddress = 0;
 
   USIDR    =  0xFF;                       // Preload dataregister with "released level" data.
@@ -798,19 +821,30 @@ ISR( USI_OVERFLOW_VECTOR )
 // Interrupt Routine, triggered when SDA pin changes; for detecting Stop condition
 ISR( PCINT0_vect )
 {
-  if((PIN_USI & (1 << PIN_USI_SDA)) && (PIN_USI & ( 1 << PIN_USI_SCL ))){
-    // stop condition occured
-    _delay_us(7);
-    if((PIN_USI & (1 << PIN_USI_SDA)) && (PIN_USI & ( 1 << PIN_USI_SCL ))){
-      twi_bus_busy = false;
-      if(currently_receiving){ // If we are receiving bytes from a master, call user callback
-        if(rxByteNum>0) twi_onSlaveReceive(rxByteNum);  // check, if anything is in the rx buffer, because it is possible,
-                                                        // that the communication was interrupted by a stop condition
-        currently_receiving = false;
-      }
-      USISR |= 1<<USIPF; // resetting stop condition flag
-    }
-  }
+	uint8_t pinsFired = PINBstate ^ PINB;
+	PINBstate = PINB;
+	
+	if (pinsFired & (1 << PIN_USI_SDA))
+	{
+		if ((PIN_USI & (1 << PIN_USI_SDA)) && (PIN_USI & (1 << PIN_USI_SCL))) {
+			// stop condition occured
+			_delay_us(7);
+			if ((PIN_USI & (1 << PIN_USI_SDA)) && (PIN_USI & (1 << PIN_USI_SCL))) {
+				twi_bus_busy = false;
+				if (currently_receiving) { // If we are receiving bytes from a master, call user callback
+					if (rxByteNum > 0) twi_onSlaveReceive(rxByteNum);  // check, if anything is in the rx buffer, because it is possible,
+																	// that the communication was interrupted by a stop condition
+					currently_receiving = false;
+				}
+				USISR |= 1 << USIPF; // resetting stop condition flag
+			}
+		}
+	}
+	else
+	{
+	  twi_onISRchain(pinsFired);
+	}
+
 }
 
 #endif

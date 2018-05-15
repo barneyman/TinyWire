@@ -56,13 +56,15 @@
 		uint8_t slave_addr=0;
 		static void (*user_onRequest)(void);
     	static void (*user_onReceive)(int);
+		static void(*user_onPCINT)(uint8_t);
     	static void onRequestService(void);
     	static void onReceiveService(int numBytes);
+		static void onPCINT(uint8_t pinsFired);
 
 		public:
 		TinyTwi();
 		void begin();
-		void begin(uint8_t I2C_SLAVE_ADDR);
+		void begin(uint8_t I2C_SLAVE_ADDR, uint8_t pcmask=0);
 		uint8_t read();
 		uint8_t receive();
 		uint8_t available();
@@ -75,6 +77,7 @@
 		
 		void onReceive( void (*)(int) );
     	void onRequest( void (*)(void) );
+		void onISR(void(*)(uint8_t));
 	};
 
 	extern TinyTwi TinyWire;

@@ -27,6 +27,7 @@
 
 	void (*TinyTwi::user_onRequest)(void);
 	void (*TinyTwi::user_onReceive)(int);
+	void (*TinyTwi::user_onPCINT)(uint8_t);
 
 	TinyTwi::TinyTwi(){
 	}
@@ -49,12 +50,13 @@
 	 Initialize USI and library for slave function
 	 Parameter: uint8_t slave address
 	-----------------------------------------------------*/
-	void TinyTwi::begin(uint8_t I2C_SLAVE_ADDR){
+	void TinyTwi::begin(uint8_t I2C_SLAVE_ADDR, uint8_t pcmask){
 		master_mode = false;
 		slave_addr = I2C_SLAVE_ADDR;
 		Twi_attachSlaveTxEvent(onRequestService);
   		Twi_attachSlaveRxEvent(onReceiveService);
-		Twi_slave_init(I2C_SLAVE_ADDR);
+		Twi_attachISRchain(onPCINT);
+		Twi_slave_init(I2C_SLAVE_ADDR, pcmask);
 	}
 
 	uint8_t TinyTwi::send(uint8_t data){
@@ -140,6 +142,18 @@
 	  user_onRequest();
 	}
 
+	void TinyTwi::onPCINT(uint8_t pinsFired)
+	{
+		// don't bother if user hasn't registered a callback
+		if (!user_onPCINT) {
+			return;
+		}
+		// alert user program
+		user_onPCINT(pinsFired);
+	}
+
+
+
 	void TinyTwi::onReceive( void (*function)(int) )
 	{
 		user_onReceive = function;
@@ -148,6 +162,11 @@
     void TinyTwi::onRequest( void (*function)(void) )
     {
     	user_onRequest = function;
+	}
+
+	void TinyTwi::onISR(void(*function)(uint8_t))
+	{
+		user_onPCINT = function;
 	}
 
 	/*-----------------------------------------------------
