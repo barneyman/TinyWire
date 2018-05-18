@@ -29,7 +29,11 @@
 	void (*TinyTwi::user_onReceive)(int);
 	void (*TinyTwi::user_onPCINT)(uint8_t);
 
-	TinyTwi::TinyTwi(){
+	SoftwareSerialTinyWIre *TinyTwi::m_serial = nullptr;
+
+	TinyTwi::TinyTwi(SoftwareSerialTinyWIre *serialDevice)
+	{
+		m_serial = (serialDevice);
 	}
 
 	/*---------------------------------------------------
@@ -144,6 +148,10 @@
 
 	void TinyTwi::onPCINT(uint8_t pinsFired)
 	{
+		// this should pin check first
+		if(m_serial)
+			m_serial->handle_interrupt();
+
 		// don't bother if user hasn't registered a callback
 		if (!user_onPCINT) {
 			return;

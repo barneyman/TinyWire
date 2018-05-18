@@ -30,6 +30,8 @@
 #ifndef tiny_twi_h
 #define tiny_twi_h
 	#include <inttypes.h>
+
+#include "SoftwareSerialTinyWIre.h"
 	
 	//********** Master Error Codes **********//
 	// Note these have been renumbered from the Atmel Apps Note. Most likely errors are now
@@ -62,7 +64,7 @@
 		static void onPCINT(uint8_t pinsFired);
 
 		public:
-		TinyTwi();
+		TinyTwi(SoftwareSerialTinyWIre *serialDevice = nullptr);
 		void begin();
 		void begin(uint8_t I2C_SLAVE_ADDR, uint8_t pcmask=0);
 		uint8_t read();
@@ -78,6 +80,8 @@
 		void onReceive( void (*)(int) );
     	void onRequest( void (*)(void) );
 		void onISR(void(*)(uint8_t));
+
+		static SoftwareSerialTinyWIre *m_serial;
 	};
 
 	extern TinyTwi TinyWire;
