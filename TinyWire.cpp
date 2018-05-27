@@ -146,19 +146,23 @@
 	  user_onRequest();
 	}
 
-	void TinyTwi::onPCINT(uint8_t pinsFired)
-	{
-		// this should pin check first
-		if(m_serial)
-			m_serial->handle_interrupt();
+	//void TinyTwi::onPCINT(uint8_t pinsFired)
+	//{
+	//	// this should pin check first
+	//	if (m_serial /*&& (m_serial->PinMaskValue()&pinsFired)*/)
+	//	{
+	//		m_serial->handle_interrupt();
+	//		return;
+	//	}
 
-		// don't bother if user hasn't registered a callback
-		if (!user_onPCINT) {
-			return;
-		}
-		// alert user program
-		user_onPCINT(pinsFired);
-	}
+
+	//	// don't bother if user hasn't registered a callback
+	//	if (!user_onPCINT) {
+	//		return;
+	//	}
+	//	// alert user program
+	//	user_onPCINT(pinsFired);
+	//}
 
 
 
@@ -180,6 +184,6 @@
 	/*-----------------------------------------------------
 	 Preinstantiate TinyWire Object
 	-------------------------------------------------------*/
-	TinyTwi TinyWire = TinyTwi();
+	// TinyTwi TinyWire = TinyTwi();
 
 #endif

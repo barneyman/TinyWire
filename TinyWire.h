@@ -61,7 +61,23 @@
 		static void(*user_onPCINT)(uint8_t);
     	static void onRequestService(void);
     	static void onReceiveService(int numBytes);
-		static void onPCINT(uint8_t pinsFired);
+		static inline void onPCINT(uint8_t pinsFired)
+		{
+			// this should pin check first
+			if (m_serial /*&& (m_serial->PinMaskValue()&pinsFired)*/)
+			{
+				m_serial->handle_interrupt();
+				return;
+			}
+
+
+			// don't bother if user hasn't registered a callback
+			if (!user_onPCINT) {
+				return;
+			}
+			// alert user program
+			user_onPCINT(pinsFired);
+		}
 
 		public:
 		TinyTwi(SoftwareSerialTinyWIre *serialDevice = nullptr);

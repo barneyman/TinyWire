@@ -104,6 +104,8 @@ public:
   virtual int available();
   virtual void flush();
   operator bool() { return true; }
+
+  inline int PinMaskValue() { return _pcint_maskvalue; }
   
   using Print::write;
 
